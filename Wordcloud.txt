@@ -1,0 +1,73 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Thu Jun 18 15:39:48 2020
+
+@author: asus
+"""
+
+import jieba 
+from nltk.collocations import  BigramCollocationFinder
+from nltk.metrics import  BigramAssocMeasures
+from nltk.probability import  FreqDist,ConditionalFreqDist
+import pandas as pd
+from sklearn.feature_extraction.text import TfidfVectorizer
+from wordcloud import WordCloud, STOPWORDS
+from sklearn.model_selection import train_test_split
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.naive_bayes import MultinomialNB
+
+f1=open("F:/answers.txt",'r')
+line1=f1.readline()
+def bag_of_words(words):
+     return dict([(word,True) for word in words])
+def  bigram_words(words,score_fn=BigramAssocMeasures.chi_sq,n=20):
+     bigram_finder=BigramCollocationFinder.from_words(words)
+     bigrams = bigram_finder.nbest(score_fn,n)
+     newBigrams = [u+v for (u,v) in bigrams]
+     a = bag_of_words(words)
+     b = bag_of_words(newBigrams)
+     a.update(b)  #把字典b合并到字典a中
+     return a 
+jiebaa=bigram_words(line1,score_fn=BigramAssocMeasures.chi_sq,n=20)
+with open("F://keys.txt",'w') as f:
+    for i in jiebaa:
+        f.write(i)
+f2=open("F://keys.txt",'r').read()
+words =jieba.cut(f2)
+text = " ".join(words)
+#print(text)
+
+data=pd.read_csv("C://Users/asus/Desktop/Python大作业/simplifyweibo_4_moods.csv")
+#print(data[:10])
+#对评论分词
+def word_cut(mytext):
+    return " ".join(jieba.cut(mytext))
+
+data["cut_review"] = data.review.apply(word_cut)
+#print(data[:10])
+
+x=data["cut_review"]
+y=data.label
+X_train, X_test, Y_train, Y_test = train_test_split(x, y, test_size=0.2, random_state=22)
+
+#clf = KNeighborsClassifier(n_neighbors = 10)
+#clf.fit(X_train,Y_train)
+#降维  变成词向量
+stopwords = open('C://Users/asus/Desktop/Python大作业/stopwords.txt','r',encoding='utf-8').read().replace('\n', ' ').split()
+vect= CountVectorizer(
+                       max_df = 0.8, 
+                       min_df = 3, 
+                       token_pattern=u'(?u)\\b[^\\d\\W]\\w+\\b', 
+                       stop_words=frozenset(stopwords))
+#test = pd.DataFrame(vect.fit_transform(X_train).toarray(), columns=vect.get_feature_names())
+#test.head()
+#训练模型
+nb = MultinomialNB()
+X_train_vect = vect.fit_transform(X_train)
+nb.fit(X_train_vect, Y_train)
+train_score = nb.score(X_train_vect, Y_train)
+print(train_score)
+#测试数据集
+X_test_vect = vect.transform(X_test)
+print(nb.score(X_test_vect, Y_test))
