@@ -1,0 +1,141 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Jun 15 12:18:36 2020
+
+@author: asus
+"""
+#import demjson
+import json
+import re
+import requests
+from bs4 import BeautifulSoup
+import matplotlib.pyplot as plt
+from os import path
+from wordcloud import WordCloud, STOPWORDS
+import jieba
+from nltk.collocations import  BigramCollocationFinder
+from nltk.metrics import  BigramAssocMeasures
+
+
+
+list1=[]
+list2=[]
+header={'User-Agent':'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/34.0.1847.137 Safari/537.36 LBBROWSER'}
+
+for i in range(80):
+    j=5*i
+    r=requests.get(url=" https://www.zhihu.com/api/v4/questions/338971582/answers?limit=3&offset="+str(j),headers=header)
+    print(r.status_code)
+    #print(" https://www.zhihu.com/api/v4/questions/376995296/answers?limit=5&offset="+a[i])
+    #json_str=r.content.decode()
+    #print(json_str)
+    demo=r.text
+    #print(demo[:1000])
+    d=json.loads(demo)
+    print(type(d))
+    value=d.values()
+    value=list(value)
+    value=value[0]
+    value=str(value)
+    value=value[1:-1]
+    value=value.replace('\'','\"')
+    
+    '''for i in value:
+        if(i=="\'"):
+            i='\"'
+    '''        
+    print(value)
+    value=eval(value)
+    print(type(value))
+    print(len(value))
+   
+    for i in range(len(value)):
+        v=value[i]
+        #print(type(v))
+        v2=v["url"]
+        print(v2)
+        list1.append(v2) 
+    print(list1)
+    for i in range(len(list1)):
+        str1=list1[i][-10:]
+        list2.append(str1)
+print(len(list2))
+list3=list(set(list2))
+print(list3)
+print(len(list3))
+print(len(list2))
+  
+for i in range(len(list3)):
+    r=requests.get(url="https://www.zhihu.com/question/338971582/answer/"+list3[i],headers=header,stream=True)
+    #print("https://www.zhihu.com/question/376995296/answer/"+list3[i])
+    print(r.status_code)
+    demo=r.text
+    #print(demo[:1000])
+    soup=BeautifulSoup(demo,"html.parser")
+    data=soup.find_all('p')#找到所有p标签
+    #print((data))
+    data_clean=re.compile(r'<p>(.*?)</p>')#使用正则表达式，去除HTML标签
+    data_f=re.findall(data_clean,str(data))
+    #print(data_f)
+    with open("F://answers.txt",'a',encoding='gb18030') as f:
+        for d in data_f:
+            
+            f.write(d)
+        f.write("\n")
+#value=json.loads(str(value[0]))
+#value=demjson.decode(value)
+#print(value)
+f1=open("F:/answers.txt",'r')
+
+line1=f1.readline()
+#单个词
+def bag_of_words(words):
+     return dict([(word,True) for word in words])
+
+#print(bag_of_words(line1))
+#双词
+def bigram(words,score_fn=BigramAssocMeasures.chi_sq,n=100):
+     bigram_finder=BigramCollocationFinder.from_words(words)  #把文本变成双词搭配的形式
+     bigrams = bigram_finder.nbest(score_fn,n)  #使用卡方统计的方法，选择排名前100的双词
+     newBigrams = [u+v for (u,v) in bigrams]
+     return bag_of_words(newBigrams)
+#单个词和双词
+#print(bigram(line1,score_fn=BigramAssocMeasures.chi_sq,n=100))
+def  bigram_words(words,score_fn=BigramAssocMeasures.chi_sq,n=100):
+     bigram_finder=BigramCollocationFinder.from_words(words)
+     bigrams = bigram_finder.nbest(score_fn,n)
+     newBigrams = [u+v for (u,v) in bigrams]
+     a = bag_of_words(words)
+     b = bag_of_words(newBigrams)
+     a.update(b)  #把字典b合并到字典a中
+     return a 
+
+#print(bigram_words(line1,score_fn=BigramAssocMeasures.chi_sq,n=100))
+jiebaa=bigram_words(line1,score_fn=BigramAssocMeasures.chi_sq,n=100)
+with open("F://keys.txt",'a') as f:
+    for i in jiebaa:
+        f.write(i)
+f2=open("F://keys.txt",'r').read()
+words =jieba.cut(f2)
+text = " ".join(words)
+#d= path.dirname(__file__)#获取当前路径
+
+stopwords = set(STOPWORDS)
+stopwords.add("said")
+wc = WordCloud(  
+    #设置字体，不指定就会出现乱码
+    font_path= "msyhl.ttc",  
+    background_color="white",   
+    max_words=100,   
+    stopwords=stopwords)  
+# generate word cloud
+wc.generate(text)
+
+# store to file
+wc.to_file(path.join("C://Users/asus/Desktop/Python大作业", "wyn1.jpg"))
+
+# show
+plt.imshow(wc, interpolation='bilinear')
+plt.axis("off")
+plt.show()
+f1.close()
